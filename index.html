@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1E3A5F">
+  <title>KHRONOS RUNNING</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- ===== Login / Cadastro ===== -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="brand">KHRONOS<span>RUNNING</span></div>
+      <p class="auth-sub">Corra. Conquiste território. Domine a cidade.</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-mode="login">Entrar</button>
+        <button class="auth-tab" data-mode="register">Cadastrar</button>
+      </div>
+      <input id="au-username" class="inp hidden" placeholder="nome de usuário" autocomplete="username">
+      <input id="au-email" class="inp" placeholder="e-mail" type="email" autocomplete="email">
+      <input id="au-password" class="inp" placeholder="senha" type="password" autocomplete="current-password">
+      <div id="auth-err" class="auth-err"></div>
+      <button id="au-submit" class="btn-primary">ENTRAR</button>
+    </div>
+  </div>
+
+  <!-- ===== Banner de zona ===== -->
+  <div id="zone-banner" class="hidden"></div>
+
+  <!-- ===== HUD durante a corrida ===== -->
+  <div id="hud" class="hidden">
+    <div class="hud-grid">
+      <div class="hud-item"><span class="hud-val" id="hud-dist">0.00</span><span class="hud-lbl">km</span></div>
+      <div class="hud-item"><span class="hud-val" id="hud-time">00:00</span><span class="hud-lbl">tempo</span></div>
+      <div class="hud-item"><span class="hud-val" id="hud-pace">--:--</span><span class="hud-lbl">min/km</span></div>
+    </div>
+  </div>
+
+  <!-- ===== Aba CORRER ===== -->
+  <div id="tab-correr" class="tab-view">
+    <button id="btn-bell" class="bell">🔔<span id="bell-badge" class="bell-badge hidden">0</span></button>
+    <button id="btn-create-zone" class="fab">＋ zona</button>
+    <div id="panel-pre" class="panel">
+      <div class="brand sm">KHRONOS<span>RUNNING</span></div>
+      <div id="season-bar" class="season-bar hidden">
+        <span class="season-tag">TEMPORADA <b id="season-num">–</b></span>
+        <span class="season-count">⏳ <b id="season-left">–</b> pra zerar</span>
+      </div>
+      <div id="hot-bar" class="hot-bar hidden">
+        <span class="hot-flame" id="hot-icon">🔥</span>
+        <span class="hot-info">
+          <b>ZONA QUENTE</b> · <span id="hot-name">–</span>
+          <small id="hot-theme">–</small>
+        </span>
+        <span class="hot-mult">km <b>x2</b></span>
+      </div>
+      <div class="summary" id="summary">Carregando…</div>
+      <label class="run-opt"><input type="checkbox" id="opt-private"> Corrida privada (não disputa território)</label>
+      <label class="run-opt"><input type="checkbox" id="opt-ghost"> Ghost runner (correr contra sua última corrida)</label>
+      <button id="btn-start" class="btn-primary">INICIAR CORRIDA</button>
+      <button id="btn-sim" class="btn-ghost">Simular corrida (teste)</button>
+    </div>
+  </div>
+
+  <!-- Aviso de antifraude -->
+  <div id="fraud-banner" class="hidden"></div>
+
+  <!-- Painel de notificações -->
+  <div id="notif-panel" class="notif-panel hidden">
+    <div class="notif-head"><b>Notificações</b><button id="btn-notif-close" class="notif-close">✕</button></div>
+    <div id="notif-list">—</div>
+  </div>
+
+  <button id="btn-stop" class="btn-stop hidden">PARAR</button>
+
+  <!-- Pós-corrida -->
+  <div id="panel-post" class="panel hidden">
+    <div class="post-title">Corrida concluída</div>
+    <div class="post-stats">
+      <div><b id="post-dist">0.00</b><small>km</small></div>
+      <div><b id="post-time">00:00</b><small>tempo</small></div>
+      <div><b id="post-pace">--:--</b><small>min/km</small></div>
+    </div>
+    <div class="post-stats post-stats-2">
+      <div><b id="post-elev">0</b><small>⛰️ elev. (m)</small></div>
+      <div><b id="post-speed">0.0</b><small>km/h</small></div>
+      <div><b id="post-cal">0</b><small>🔥 kcal</small></div>
+    </div>
+    <div id="post-splits" class="splits"></div>
+    <div id="post-territories"></div>
+    <button id="btn-save" class="btn-primary">SALVAR</button>
+    <button id="btn-discard" class="btn-ghost">Descartar</button>
+  </div>
+
+  <!-- ===== Aba RANKING ===== -->
+  <div id="tab-ranking" class="tab-view hidden">
+    <div class="sheet">
+      <h2>Ranking semanal</h2>
+      <div id="rank-list" class="rank-list">…</div>
+
+      <h3>Grupos</h3>
+      <div class="group-create">
+        <input id="group-name" class="inp" placeholder="criar grupo (ex: Equipe Ocupacional)">
+        <button id="btn-group-create" class="btn-primary">Criar</button>
+      </div>
+      <div id="group-list" class="group-list">—</div>
+      <div id="group-detail" class="hidden">
+        <h3 id="group-detail-name">—</h3>
+        <div id="group-detail-rank" class="rank-list"></div>
+        <button id="btn-group-back" class="btn-ghost">Voltar aos grupos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Aba SOCIAL ===== -->
+  <div id="tab-social" class="tab-view hidden">
+    <div class="sheet">
+      <h2>Feed</h2>
+      <div class="follow-bar">
+        <input id="follow-name" class="inp" placeholder="seguir usuário (@nome)">
+        <button id="btn-follow" class="btn-primary">Seguir</button>
+      </div>
+      <div id="feed-list" class="feed-list">—</div>
+    </div>
+  </div>
+
+  <!-- ===== Aba DESAFIOS ===== -->
+  <div id="tab-desafios" class="tab-view hidden">
+    <div class="sheet">
+      <h2>Desafios</h2>
+      <div id="streak-box" class="streak-box">🔥 <b id="streak-val">0</b> dias seguidos</div>
+      <h3>Missões diárias</h3>
+      <div id="missions-daily">—</div>
+      <h3>Missões da semana</h3>
+      <div id="missions-weekly">—</div>
+      <h3>Estádios 🏟️</h3>
+      <div id="stadiums-list" class="badge-grid">—</div>
+      <h3>Volta ao mundo 🌍</h3>
+      <div id="countries-list">—</div>
+    </div>
+  </div>
+
+  <!-- ===== Aba PERFIL ===== -->
+  <div id="tab-perfil" class="tab-view hidden">
+    <div class="sheet">
+      <div class="prof-head">
+        <div class="prof-avatar" id="prof-initial">?</div>
+        <div>
+          <div class="prof-name" id="prof-name">—</div>
+          <div class="prof-level" id="prof-level">—</div>
+        </div>
+      </div>
+      <div class="prof-stats">
+        <div><b id="prof-totalkm">0</b><small>km total</small></div>
+        <div><b id="prof-weekkm">0</b><small>km semana</small></div>
+        <div><b id="prof-runs">0</b><small>corridas</small></div>
+        <div><b id="prof-terr">0</b><small>territórios</small></div>
+      </div>
+      <h3>Recordes pessoais 📊</h3>
+      <div class="prof-stats prof-records">
+        <div><b id="prof-longest">0</b><small>maior corrida (km)</small></div>
+        <div><b id="prof-bestpace">--:--</b><small>melhor pace</small></div>
+        <div><b id="prof-elev">0</b><small>⛰️ elev. total (m)</small></div>
+        <div><b id="prof-cal">0</b><small>🔥 kcal total</small></div>
+      </div>
+      <div class="weight-row">
+        <label for="prof-weight">Seu peso (kg) — pra calcular calorias:</label>
+        <div class="weight-input">
+          <input id="prof-weight" class="inp" type="number" min="30" max="300" step="0.5" placeholder="ex: 72">
+          <button id="btn-weight-save" class="btn-primary">Salvar</button>
+        </div>
+      </div>
+      <h3>Histórico de corridas 🏃</h3>
+      <div id="prof-runs-list" class="runs-list">—</div>
+      <h3>Seus territórios</h3>
+      <div id="prof-territories" class="prof-terr-list">—</div>
+      <h3>Troféus de temporada 🏆</h3>
+      <div id="prof-trophies" class="prof-terr-list">—</div>
+      <button id="btn-logout" class="btn-ghost">Sair</button>
+    </div>
+  </div>
+
+  <!-- ===== Barra de criar zona ===== -->
+  <div id="create-bar" class="create-bar hidden">
+    <div class="create-info">Toque no mapa pra marcar os cantos da zona (mín. 3, perímetro ≥ 500m).</div>
+    <input id="zone-name" class="inp" placeholder="nome da zona">
+    <div class="create-actions">
+      <button id="btn-zone-cancel" class="btn-ghost">Cancelar</button>
+      <button id="btn-zone-save" class="btn-primary">Criar zona</button>
+    </div>
+  </div>
+
+  <!-- ===== Overlay de conquista (com peso) ===== -->
+  <div id="conquest-overlay" class="conquest-overlay hidden">
+    <div id="conquest-card" class="conquest-card">
+      <div class="cq-glow"></div>
+      <div class="cq-crown">👑</div>
+      <div class="cq-title">TERRITÓRIO CONQUISTADO</div>
+      <div class="cq-hot hidden" id="cq-hot">🔥 ZONA QUENTE · km em dobro</div>
+      <div class="cq-zone" id="cq-zone">—</div>
+      <div class="cq-by">por <b id="cq-user">você</b> · Temporada <span id="cq-season">–</span></div>
+      <div class="cq-brand">KHRONOS<span>RUNNING</span></div>
+    </div>
+    <div class="cq-actions">
+      <button id="btn-cq-share" class="btn-primary">📲 Compartilhar conquista</button>
+      <button id="btn-cq-close" class="btn-ghost">Fechar</button>
+    </div>
+  </div>
+
+  <!-- ===== Tab bar ===== -->
+  <nav id="tabbar">
+    <button class="tab-btn active" data-tab="correr">🏃<span>Correr</span></button>
+    <button class="tab-btn" data-tab="social">📣<span>Social</span></button>
+    <button class="tab-btn" data-tab="ranking">🏆<span>Ranking</span></button>
+    <button class="tab-btn" data-tab="desafios">🎯<span>Desafios</span></button>
+    <button class="tab-btn" data-tab="perfil">👤<span>Perfil</span></button>
+  </nav>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="local-api.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
